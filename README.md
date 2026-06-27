@@ -1,4 +1,4 @@
-# ChadWallet
+# Vachetta
 
 A fomo.family-style Solana trading app. Sign in with Google/Apple, get an
 embedded wallet, fund it, and trade trending tokens with real market data.
