@@ -19,12 +19,13 @@ function TokenLogo({ src, symbol, size = 52 }: { src?: string; symbol: string; s
   const [broken, setBroken] = useState(false);
   if (src && !broken) {
     return (
-      <img 
-        src={src} 
-        alt="" 
-        onError={() => setBroken(true)} 
-        style={{ width: size, height: size }} 
-        className="rounded-2xl bg-[#1c1c1e] shrink-0 object-cover border border-white/[0.08] shadow-sm" 
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={src}
+        alt=""
+        onError={() => setBroken(true)}
+        style={{ width: size, height: size }}
+        className="rounded-2xl bg-[#1c1c1e] shrink-0 object-cover border border-white/[0.08] shadow-sm"
       />
     );
   }
@@ -40,8 +41,14 @@ export function TokenExplorer() {
   const [trending, setTrending] = useState<TrendingToken[] | null>(null);
   const [results, setResults] = useState<TrendingToken[] | null>(null);
   const [searching, setSearching] = useState(false);
-  
+  const [mounted, setMounted] = useState(false);
+
   const reqId = useRef(0);
+
+  // Only run the marquee animation after the component has mounted on the
+  // client. Starting it during hydration makes the transform run against a
+  // still-shifting layout, which causes the clip/flash/stutter on first load.
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     getTrending(20).then(setTrending).catch(console.error);
@@ -72,11 +79,12 @@ export function TokenExplorer() {
   }, [query]);
 
   const isSearching = query.trim().length >= 2;
+  const animate = mounted && trending;
 
   return (
     <div className="w-full text-white font-sans antialiased space-y-8 py-4">
-      
-      {}
+
+      {/* Header + search */}
       <div className="max-w-6xl mx-auto px-6 flex items-center justify-between gap-8 select-none">
         <div className="flex items-center gap-3 shrink-0">
           <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-[#f5f5f7]">
@@ -89,26 +97,25 @@ export function TokenExplorer() {
           )}
         </div>
 
-        {}
         <div className="relative flex-1 max-w-[460px]">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b] pointer-events-none">
-            <svg 
-              role="img" 
-              height="16" 
-              width="16" 
-              aria-hidden="true" 
-              viewBox="0 0 16 16" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
+            <svg
+              role="img"
+              height="16"
+              width="16"
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
               strokeLinejoin="round"
             >
               <circle cx="7" cy="7" r="4.5" />
               <line x1="10.5" y1="10.5" x2="14" y2="14" />
             </svg>
           </div>
-          
+
           <input
             type="text"
             value={query}
@@ -116,9 +123,9 @@ export function TokenExplorer() {
             placeholder="Search tokens by name or address..."
             className="w-full h-11 pl-12 pr-10 rounded-full bg-[#161617] border border-white/[0.06] focus:border-white/20 text-[14px] font-normal text-white placeholder:text-[#86868b] outline-none transition-all duration-200"
           />
-          
+
           {query && (
-            <button 
+            <button
               onClick={() => setQuery("")}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#86868b] hover:text-white text-sm p-1 font-semibold transition-colors"
             >
@@ -128,14 +135,14 @@ export function TokenExplorer() {
         </div>
       </div>
 
-      {}
+      {/* Content */}
       {!isSearching ? (
         <div className="relative overflow-hidden w-full py-2">
-          <div 
+          <div
             className="w-full overflow-hidden relative"
             style={{ maskImage: "linear-gradient(to right, transparent, white 15%, white 85%, transparent)" }}
           >
-            <div className="flex gap-5 w-max animate-appleMarquee hover:[animation-play-state:paused] px-16 will-change-transform">
+            <div className={`flex gap-5 w-max ${animate ? "animate-appleMarquee" : ""} hover:[animation-play-state:paused] px-16 will-change-transform`}>
               {trending ? (
                 [...trending, ...trending].map((t, i) => {
                   const up = (t.price24hChangePercent ?? 0) >= 0;
@@ -147,7 +154,7 @@ export function TokenExplorer() {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0 leading-tight space-y-1">
-                          <span className="text-[10px] font-mono font-bold text-white/20 tracking-widest block">#{ (i % trending.length) + 1 }</span>
+                          <span className="text-[10px] font-mono font-bold text-white/20 tracking-widest block">#{(i % trending.length) + 1}</span>
                           <h4 className="truncate font-bold text-lg text-[#f5f5f7] tracking-tight group-hover:text-violet transition-colors">
                             {t.symbol}
                           </h4>
