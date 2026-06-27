@@ -2,22 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BIRDEYE_BASE = "https://public-api.birdeye.so";
 
-// In-memory cache + in-flight dedup. Note: on Vercel this lives per warm
-// serverless instance (not shared globally, not permanent), but it still
-// absorbs the 30s client polls and duplicate bursts that trip BirdEye's
-// free-tier rate limit, and lets us serve last-good data on a 429.
 type Entry = { body: string; status: number; ts: number };
 const cache = new Map<string, Entry>();
 const inflight = new Map<string, Promise<{ body: string; status: number }>>();
 
-// How long a cached OK response is considered fresh, by endpoint.
 function freshMs(path: string): number {
   if (path.includes("ohlcv")) return 60_000; // candles move slowly
   if (path.includes("txs")) return 15_000; // live trades
   return 30_000; // overview, search, trending, etc.
 }
 
-// How long we'll still serve a stale OK response when upstream is failing.
 const STALE_MS = 5 * 60_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -37,14 +31,11 @@ export async function GET(
   const url = `${BIRDEYE_BASE}/${joined}${search}`;
   const cacheKey = joined + search;
   const now = Date.now();
-
-  // 1) Fresh cache hit → serve immediately.
   const cached = cache.get(cacheKey);
   if (cached && cached.status === 200 && now - cached.ts < freshMs(joined)) {
     return json(cached.body, 200, "fresh");
   }
 
-  // 2) Collapse concurrent identical requests into one upstream call.
   let p = inflight.get(cacheKey);
   if (!p) {
     p = fetchWithRetry(url, key).finally(() => inflight.delete(cacheKey));
@@ -52,18 +43,16 @@ export async function GET(
   }
   const { body, status } = await p;
 
-  // 3) On success, cache and return.
+
   if (status === 200) {
     cache.set(cacheKey, { body, status, ts: Date.now() });
     return json(body, 200, "live");
   }
 
-  // 4) On failure (429/5xx), serve last-good data if we have any recent one.
   if (cached && cached.status === 200 && now - cached.ts < STALE_MS) {
     return json(cached.body, 200, "stale");
   }
 
-  // 5) Nothing to fall back on — pass the upstream status through.
   return json(body || JSON.stringify({ success: false }), status, "error");
 }
 
